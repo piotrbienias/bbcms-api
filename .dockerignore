@@ -1,0 +1,5 @@
+# Do not include node_modules folder
+node_modules
+
+# Do not include build 'dist' folder
+dist

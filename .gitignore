@@ -1,0 +1,14 @@
+# IDEA
+.idea
+
+# Node modules
+node_modules/
+
+# Build
+dist/
+
+# Environment variables
+.env
+
+# Test
+test/

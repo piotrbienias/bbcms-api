@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "sourceMap": true,
+    "baseUrl": ".",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "paths": {
+      "*":              [ "node_modules/*" ],
+      "@system/*":      [ "src/api/modules/system/*" ],
+      "@i18n/*":        [ "src/api/modules/i18n/*" ],
+      "@config/*":      [ "src/api/config/*" ],
+      "@lib/*":         [ "src/api/lib/*" ]
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": [
+    "./src/**/*.ts"
+  ],
+  "exclude": [
+    "./node_modules/"
+  ]
+}

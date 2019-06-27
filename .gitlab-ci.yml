@@ -1,0 +1,69 @@
+stages:
+  - build
+  - deploy
+
+
+# Build Docker image with use of Dockerfile and push it to the registry
+build_image:
+  stage: build
+  environment:
+    name: staging
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login --username="$DOCKER_USERNAME" --password="$DOCKER_PASSWORD"
+    - docker build -t "$DOCKER_USERNAME/$DOCKER_REPO:${CI_COMMIT_SHORT_SHA}" .
+    - docker push "$DOCKER_USERNAME/$DOCKER_REPO:${CI_COMMIT_SHORT_SHA}"
+
+
+# Apply changes to Kubernetes deployment to restart the app
+deploy_config:
+  stage: deploy
+  environment:
+    name: staging
+  image: alpine
+  before_script:
+    - apk add curl git openssh-client # add curl, git and ssh client
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - eval $(ssh-agent -s)
+    - ssh-add ~/.ssh/id_rsa
+  script:
+    - KUBERNETES_VERSION=$(curl https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+    - curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBERNETES_VERSION}/bin/linux/amd64/kubectl
+    - chmod +x ./kubectl
+    - mv ./kubectl /usr/local/bin/kubectl
+    - mkdir ~/.kube
+    - cp $KUBECONFIG ~/.kube/config
+    - echo "Updating deployment configuration"
+    - |
+      git clone git@gitlab.com:piotrbienias/bbcms-staging
+
+      git config --global user.email "$GITLAB_USER_EMAIL"
+      git config --global user.name "$GITLAB_USER_NAME"
+
+      cd bbcms-staging
+      touch ~/patch.yaml
+
+      cat > ~/patch.yaml <<EOL
+      spec:
+        template:
+          spec:
+            containers:
+              - name: bbcms-web
+                image: pbienias/bbcms-web:${CI_COMMIT_SHORT_SHA}
+      EOL
+
+      kubectl patch -f kubernetes/web-deployment.yaml --local -o yaml -p "$(cat ~/patch.yaml)" > updated-web-development.yaml
+
+      mv updated-web-development.yaml kubernetes/web-development.yaml
+
+      git add kubernetes/web-development.yaml
+
+      git commit -m "Updating the web deployment container image to tag: ${CI_COMMIT_HASH}"
+
+      git push origin master
